@@ -3,8 +3,6 @@ import { BookOpenIcon } from 'lucide-react'
 import { formatPrice } from '@/lib/format'
 import { IconBadge } from './icon-badge'
 import { CourseProgress } from './course-progress'
-import Image from '@rc-component/image';
-
 
 type CourseCardProps = {
   id: string
@@ -19,7 +17,7 @@ type CourseCardProps = {
 export default function CourseCard({
   id,
   title,
-  imageUrl = "https://img.clerk.com/eyJ0eXBlIjoicHJveHkiLCJzcmMiOiJodHRwczovL2ltYWdlcy5jbGVyay5kZXYvb2F1dGhfZ29vZ2xlL2ltZ18yek1SMmhJSGtYWlJtaDNhdlA2MlcwWlViWWsifQ?width=80",
+  imageUrl,
   chaptersLength,
   price,
   progress,
@@ -32,7 +30,7 @@ export default function CourseCard({
     <Link href={`/courses/${id}`}>
       <div className="group h-full overflow-hidden rounded-lg border p-3 transition hover:shadow-sm">
         <div className="relative aspect-video w-full overflow-hidden rounded-md">
-          <Image className="object-cover" alt={title} src={imageUrl} />
+          <img className="object-cover" alt={title} src={imageUrl} />
           {/* <Image fill className="object-cover" alt={title} src={imageUrl} /> */}
         </div>
 
