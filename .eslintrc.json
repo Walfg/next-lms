@@ -3,12 +3,15 @@
   "rules": {
     "react/self-closing-comp": [
       "error",
-      {
-        "component": true,
-        "html": true
-      }
+      { "component": true, "html": true }
     ],
-    "no-console": "error",
+
+    // ⬇︎ Ajuste propuesto
+    "no-console": [
+      "error",
+      { "allow": ["warn", "error"] }   // permite console.warn y console.error
+    ],
+
     "object-shorthand": "error"
   }
 }
