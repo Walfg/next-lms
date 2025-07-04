@@ -6,6 +6,8 @@
       { "component": true, "html": true }
     ],
 
+     "@next/next/no-img-element": "off",
+
     // ⬇︎ Ajuste propuesto
     "no-console": [
       "error",

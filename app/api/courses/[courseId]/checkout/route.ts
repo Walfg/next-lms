@@ -4,23 +4,21 @@ import Stripe from 'stripe'
 import { db } from '@/lib/db'
 import { stripe } from '@/lib/stripe'
 
-// helper para respuestas de error JSON
 const jsonError = (msg: string, status = 400) =>
   new NextResponse(msg, { status })
 
-// Route handler
 export async function POST(
-  req: Request,
+  _req: Request,
   { params }: { params: { courseId: string } }
 ) {
   try {
-    /* 1 — Auth */
+    /* 1 — Auth */
     const user = await currentUser()
     if (!user || !user.id || !user.emailAddresses?.[0]?.emailAddress) {
       return jsonError('Unauthorized', 401)
     }
 
-    /* 2 — Curso */
+    /* 2 — Curso */
     const course = await db.course.findUnique({
       where: { id: params.courseId, isPublished: true }
     })
@@ -29,29 +27,27 @@ export async function POST(
       return jsonError('Course price not set', 400)
     }
 
-    /* 3 — ¿Ya comprado? */
-    const existing = await db.purchase.findUnique({
-      where: {
-        userId_courseId: { userId: user.id, courseId: params.courseId }
-      }
+    /* 3 — ¿Compra previa? */
+    const already = await db.purchase.findUnique({
+      where: { userId_courseId: { userId: user.id, courseId: params.courseId } }
     })
-    if (existing) return jsonError('Already purchased', 400)
+    if (already) return jsonError('Already purchased', 400)
 
-    /* 4 — Cliente Stripe (cache) */
+    /* 4 — Cliente Stripe en caché */
     let stripeCustomer = await db.stripeCustomer.findUnique({
       where: { userid: user.id },
       select: { stripeCustomerId: true }
     })
     if (!stripeCustomer) {
-      const customer = await stripe.customers.create({
+      const c = await stripe.customers.create({
         email: user.emailAddresses[0].emailAddress
       })
       stripeCustomer = await db.stripeCustomer.create({
-        data: { userid: user.id, stripeCustomerId: customer.id }
+        data: { userid: user.id, stripeCustomerId: c.id }
       })
     }
 
-    /* 5 — Ítems del checkout */
+    /* 5 — Ítems */
     const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [
       {
         quantity: 1,
@@ -66,7 +62,7 @@ export async function POST(
       }
     ]
 
-    /* 6 — URLs de retorno */
+    /* 6 — URLs */
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     if (!baseUrl) {
       /* eslint-disable-next-line no-console */
@@ -74,7 +70,7 @@ export async function POST(
       return jsonError('Server misconfigured', 500)
     }
 
-    /* 7 — Crear sesión de pago */
+    /* 7 — Sesión */
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomer.stripeCustomerId,
       line_items,
@@ -88,7 +84,6 @@ export async function POST(
   } catch (error) {
     /* eslint-disable-next-line no-console */
     console.error('[COURSE_CHECKOUT_ERROR]', error)
-
     if (error instanceof Stripe.errors.StripeError) {
       return jsonError(error.message, 400)
     }
