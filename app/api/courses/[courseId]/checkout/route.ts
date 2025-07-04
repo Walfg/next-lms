@@ -8,11 +8,9 @@ import { stripe } from '@/lib/stripe'
 const jsonError = (msg: string, status = 400) =>
   new NextResponse(msg, { status })
 
-export async function POST(
-  _req: Request,
-  context: { params: { courseId: string } }   // ✅ tipo local, sin RouteContext
-) {
-  const { courseId } = context.params          // ahora sí lo desestructuramos
+export async function POST(req: Request, { params }: any) {
+
+  const courseId = params.courseId as string
 
   try {
     /* 1 — Auth */
