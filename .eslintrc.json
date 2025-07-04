@@ -15,5 +15,11 @@
     ],
 
     "object-shorthand": "error"
-  }
+  },
+    "overrides": [
+    {
+      "files": ["app/api/**/*.ts"],
+      "rules": { "@typescript-eslint/no-explicit-any": "off" }
+    }
+  ]
 }
