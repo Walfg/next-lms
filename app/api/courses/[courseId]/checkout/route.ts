@@ -1,19 +1,20 @@
 import { currentUser } from '@clerk/nextjs/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { db } from '@/lib/db'
 import { stripe } from '@/lib/stripe'
 
-// Utilidad para responder con JSON de error
+// helper para respuestas de error JSON
 const jsonError = (msg: string, status = 400) =>
   new NextResponse(msg, { status })
 
+// Route handler
 export async function POST(
-  req: NextRequest,
+  req: Request,
   { params }: { params: { courseId: string } }
 ) {
   try {
-    /* 1 — Autenticación */
+    /* 1 — Auth */
     const user = await currentUser()
     if (!user || !user.id || !user.emailAddresses?.[0]?.emailAddress) {
       return jsonError('Unauthorized', 401)
@@ -23,24 +24,20 @@ export async function POST(
     const course = await db.course.findUnique({
       where: { id: params.courseId, isPublished: true }
     })
-    if (!course) {
-      return jsonError('Course not found', 404)
-    }
+    if (!course) return jsonError('Course not found', 404)
     if (!course.price || course.price <= 0) {
       return jsonError('Course price not set', 400)
     }
 
-    /* 3 — Compra previa */
-    const alreadyBought = await db.purchase.findUnique({
+    /* 3 — ¿Ya comprado? */
+    const existing = await db.purchase.findUnique({
       where: {
         userId_courseId: { userId: user.id, courseId: params.courseId }
       }
     })
-    if (alreadyBought) {
-      return jsonError('Already purchased', 400)
-    }
+    if (existing) return jsonError('Already purchased', 400)
 
-    /* 4 — Cliente de Stripe (cacheado en BD) */
+    /* 4 — Cliente Stripe (cache) */
     let stripeCustomer = await db.stripeCustomer.findUnique({
       where: { userid: user.id },
       select: { stripeCustomerId: true }
@@ -54,7 +51,7 @@ export async function POST(
       })
     }
 
-    /* 5 — Líneas de carrito */
+    /* 5 — Ítems del checkout */
     const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [
       {
         quantity: 1,
@@ -72,6 +69,7 @@ export async function POST(
     /* 6 — URLs de retorno */
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     if (!baseUrl) {
+      /* eslint-disable-next-line no-console */
       console.error('[CHECKOUT_ERROR] Falta NEXT_PUBLIC_APP_URL')
       return jsonError('Server misconfigured', 500)
     }
@@ -83,18 +81,14 @@ export async function POST(
       mode: 'payment',
       success_url: `${baseUrl}/courses/${course.id}?success=1`,
       cancel_url: `${baseUrl}/courses/${course.id}?cancelled=1`,
-      metadata: {
-        courseId: course.id,
-        userId: user.id
-      }
+      metadata: { courseId: course.id, userId: user.id }
     })
 
     return NextResponse.json({ url: session.url })
   } catch (error) {
-    // LOG detallado para depurar en Vercel
+    /* eslint-disable-next-line no-console */
     console.error('[COURSE_CHECKOUT_ERROR]', error)
 
-    // Respuesta según tipo de error
     if (error instanceof Stripe.errors.StripeError) {
       return jsonError(error.message, 400)
     }
